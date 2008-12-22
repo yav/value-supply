@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 --------------------------------------------------------------------
 -- |
 -- Module    : Data.Supply
@@ -35,8 +36,15 @@ module Data.Supply
   ) where
 
 -- Usinga an IORef is thread-safe because we update it with 'atomicModifyIORef'.
-import Data.IORef
+import Data.IORef(IORef,newIORef,atomicModifyIORef)
+
+#if __GLASGOW_HASKELL__ >= 608
+import GHC.IOBase(unsafeDupableInterleaveIO)
+#else
 import System.IO.Unsafe(unsafeInterleaveIO)
+unsafeDupableInterleaveIO :: IO a -> IO a
+unsafeDupableInterleaveIO = unsafeInterleaveIO
+#endif
 
 -- Basics ----------------------------------------------------------------------
 
@@ -67,14 +75,15 @@ instance Functor Supply where
 newSupply    :: a -> (a -> a) -> IO (Supply a)
 newSupply x f = gen =<< newIORef (iterate f x)
 
-  where gen r = do v <- unsafeInterleaveIO (genSym r)
-                   ls <- unsafeInterleaveIO (gen r)
-                   rs <- unsafeInterleaveIO (gen r)
+  where gen r = unsafeDupableInterleaveIO
+              $ do v <- unsafeDupableInterleaveIO (genSym r)
+                   ls <- gen r
+                   rs <- gen r
                    return (Node v ls rs)
 
         genSym       :: IORef [a] -> IO a
         genSym r      = atomicModifyIORef r (\(a:as) -> (as,a))
-                           
+
 -- | Generate a new supply by systematically applying a function
 -- to an existing supply.  This function, together with 'supplyValue'
 -- form a comonad on 'Supply'.
