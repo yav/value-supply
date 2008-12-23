@@ -7,11 +7,11 @@ import Data.Supply
 
 import Unique
 import UniqSupply
-import StaticFlagParser ( parseStaticFlags )
 
 import System           ( getArgs )
-import System.CPUTime   ( getCPUTime )
+import System.CPUTime   ( getCPUTime, cpuTimePrecision )
 import Control.Monad    ( liftM )
+import Numeric          ( showGFloat )
 
 splitU :: UniqSupply -> [UniqSupply]
 splitU us = vs : splitU ws where (vs,ws) = splitUniqSupply us
@@ -27,7 +27,8 @@ main = do
   demand count id (repeat ())
 
   iavorStart <- getCPUTime
-  vs <- newNumSupply :: IO (Supply Int)
+  vs <- newEnumSupply :: IO (Supply Int)
+  -- vs <- unsafeNewIntSupply
   demand count supplyValue (split vs)
 
   ghcStart <- getCPUTime
@@ -38,6 +39,15 @@ main = do
   let countTime = iavorStart - countStart
       iavorTime = ghcStart   - iavorStart
       ghcTime   = end        - ghcStart
+      ratio
+        | ghcTime == countTime = "?"
+        | otherwise   = sh  (fromIntegral (iavorTime-countTime) /
+                             fromIntegral (ghcTime-countTime))
+      scale     = fromIntegral cpuTimePrecision
+      sh x = showGFloat (Just 2) x ""
 
-  putStrLn $ show (100*(iavorTime-countTime)`div`(ghcTime-countTime)) ++ "%"
+  putStrLn ("count: " ++ show count ++
+          "\tval: " ++ sh (fromIntegral iavorTime / scale) ++
+          "\tghc: " ++ sh (fromIntegral ghcTime / scale) ++
+          "\tratio: " ++ ratio)
 

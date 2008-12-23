@@ -2,11 +2,13 @@
 
 # Bench program written by Sebastian Fischer <sebf@informatik.uni-kiel.de>
 
-if [ -e dist ]; then rm -rf dist; fi
+set -e
+
+rm -rf dist Bench
 mkdir -p dist
 ghc --make -O2 -hidir dist -odir dist -package ghc Bench.hs
 
-for ((count=100; count<=100000000; count*=10)); do
-  echo "`./Bench ${count}` for ${count} names"
+for ((count=100; count<=10000000; count*=10)); do
+  ./Bench ${count}
 done
 
