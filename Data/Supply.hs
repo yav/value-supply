@@ -36,15 +36,9 @@ module Data.Supply
   ) where
 
 -- Usinga an IORef is thread-safe because we update it with 'atomicModifyIORef'.
+-- XXX: Is the atomic necessary?
 import Data.IORef(IORef,newIORef,atomicModifyIORef)
-
-#if __GLASGOW_HASKELL__ >= 608
-import GHC.IOBase(unsafeDupableInterleaveIO)
-#else
-import System.IO.Unsafe(unsafeInterleaveIO)
-unsafeDupableInterleaveIO :: IO a -> IO a
-unsafeDupableInterleaveIO = unsafeInterleaveIO
-#endif
+import System.IO.Unsafe(unsafePerformIO,unsafeInterleaveIO)
 
 -- Basics ----------------------------------------------------------------------
 
@@ -73,11 +67,10 @@ instance Functor Supply where
 genericNewSupply :: b -> (IORef b -> IO a) -> IO (Supply a)
 genericNewSupply start genSym = gen =<< newIORef start
 
-  where gen r = unsafeDupableInterleaveIO
-              $ do v <- unsafeDupableInterleaveIO (genSym r)
-                   ls <- gen r
+  where gen r = unsafeInterleaveIO
+              $ do ls <- gen r
                    rs <- gen r
-                   return (Node v ls rs)
+                   return (Node (unsafePerformIO (genSym r)) ls rs)
 
 -- | Creates a new supply of values.
 -- The arguments specify how to generate values:
@@ -98,7 +91,6 @@ newEnumSupply   = genericNewSupply (toEnum 0) enumGenSym
 newNumSupply   :: (Num a) => IO (Supply a)
 newNumSupply    = genericNewSupply 0 numGenSym
 
-
 -- Different ways to generate new values:
 listGenSym     :: IORef [a] -> IO a
 listGenSym r    = atomicModifyIORef r (\(a:as) -> (as,a))
@@ -108,7 +100,6 @@ enumGenSym r    = atomicModifyIORef r (\a -> let n = succ a in seq n (n,a))
 
 numGenSym      :: Num a => IORef a -> IO a
 numGenSym r     = atomicModifyIORef r (\a -> let n = 1 + a in seq n (n,a))
-
 
 
 -- | Generate a new supply by systematically applying a function
