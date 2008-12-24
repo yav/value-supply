@@ -28,7 +28,7 @@ main = do
 
   iavorStart <- getCPUTime
   vs <- newEnumSupply :: IO (Supply Int)
-  -- vs <- unsafeNewIntSupply
+  -- vs <- newDupableEnumSupply :: IO (Supply Int)
   demand count supplyValue (split vs)
 
   ghcStart <- getCPUTime
