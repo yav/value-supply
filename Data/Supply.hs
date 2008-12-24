@@ -38,7 +38,7 @@ module Data.Supply
 
 -- Usinga an IORef is thread-safe because we update it with 'atomicModifyIORef'.
 -- XXX: Is the atomic necessary?
-import Data.IORef(IORef,newIORef,atomicModifyIORef)
+import Data.IORef(newIORef,atomicModifyIORef)
 import System.IO.Unsafe(unsafeInterleaveIO)
 
 #if __GLASGOW_HASKELL__ >= 608
@@ -72,10 +72,10 @@ instance Functor Supply where
 
 
 {-# INLINE genericNewSupply #-}
-genericNewSupply :: b -> (IORef b -> IO a) -> IO (Supply a)
-genericNewSupply start genSym = gen =<< newIORef start
+genericNewSupply :: b -> (b -> (b,a)) -> IO (Supply a)
+genericNewSupply start next = gen =<< newIORef start
   where gen r = unsafeInterleaveIO
-              $ do v  <- unsafeInterleaveIO (genSym r)
+              $ do v  <- unsafeInterleaveIO (atomicModifyIORef r next)
                    ls <- gen r
                    rs <- gen r
                    return (Node v ls rs)
@@ -107,21 +107,23 @@ newNumSupply    = genericNewSupply 0 numGenSym
 unsafeNewIntSupply :: IO (Supply Int)
 unsafeNewIntSupply = gen =<< newIORef 0
   where gen r = unsafeDupableInterleaveIO
-              $ do v  <- unsafeDupableInterleaveIO (enumGenSym r)
+              $ do v  <- unsafeDupableInterleaveIO
+                       $ atomicModifyIORef r enumGenSym
                    ls <- gen r
                    rs <- gen r
                    return (Node v ls rs)
 
 
 -- Different ways to generate new values:
-listGenSym     :: IORef [a] -> IO a
-listGenSym r    = atomicModifyIORef r (\(a:as) -> (as,a))
+listGenSym       :: [a] -> ([a],a)
+listGenSym (a:as) = (as,a)
+listGenSym _      = error "listGenSym: out of names."
 
-enumGenSym     :: Enum a => IORef a -> IO a
-enumGenSym r    = atomicModifyIORef r (\a -> let n = succ a in seq n (n,a))
+enumGenSym       :: Enum a => a -> (a,a)
+enumGenSym a      = let n = succ a in seq n (n,a)
 
-numGenSym      :: Num a => IORef a -> IO a
-numGenSym r     = atomicModifyIORef r (\a -> let n = 1 + a in seq n (n,a))
+numGenSym        :: Num a => a -> (a,a)
+numGenSym a       = let n = 1 + a in seq n (n,a)
 
 
 -- | Generate a new supply by systematically applying a function
