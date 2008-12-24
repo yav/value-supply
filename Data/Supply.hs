@@ -39,16 +39,13 @@ module Data.Supply
 -- Usinga an IORef is thread-safe because we update it with 'atomicModifyIORef'.
 -- XXX: Is the atomic necessary?
 import Data.IORef(IORef,newIORef,atomicModifyIORef)
-import System.IO.Unsafe(unsafePerformIO,unsafeInterleaveIO)
+import System.IO.Unsafe(unsafeInterleaveIO)
 
 #if __GLASGOW_HASKELL__ >= 608
-import GHC.IOBase(unsafeDupableInterleaveIO,unsafeDupablePerformIO)
+import GHC.IOBase(unsafeDupableInterleaveIO)
 #else
 unsafeDupableInterleaveIO :: IO a -> IO a
 unsafeDupableInterleaveIO = unsafeInterleaveIO
-
-unsafeDupablePerformIO :: IO a -> a
-unsafeDupablePerformIO = unsafePerformIO
 #endif
 
 -- Basics ----------------------------------------------------------------------
@@ -78,9 +75,10 @@ instance Functor Supply where
 genericNewSupply :: b -> (IORef b -> IO a) -> IO (Supply a)
 genericNewSupply start genSym = gen =<< newIORef start
   where gen r = unsafeInterleaveIO
-              $ do ls <- gen r
+              $ do v  <- unsafeInterleaveIO (genSym r)
+                   ls <- gen r
                    rs <- gen r
-                   return (Node (unsafePerformIO (genSym r)) ls rs)
+                   return (Node v ls rs)
 
 -- | Creates a new supply of values.
 -- The arguments specify how to generate values:
@@ -109,11 +107,10 @@ newNumSupply    = genericNewSupply 0 numGenSym
 unsafeNewIntSupply :: IO (Supply Int)
 unsafeNewIntSupply = gen =<< newIORef 0
   where gen r = unsafeDupableInterleaveIO
-              $ do ls <- gen r
+              $ do v  <- unsafeDupableInterleaveIO (enumGenSym r)
+                   ls <- gen r
                    rs <- gen r
-                   return (Node (unsafeDupablePerformIO (enumGenSym r)) ls rs)
-
-
+                   return (Node v ls rs)
 
 
 -- Different ways to generate new values:
