@@ -23,9 +23,6 @@ demand n f (x:xs) = f x `seq` demand (n-1) f xs
 main = do
   count <- liftM (read.head) getArgs
 
-  countStart <- getCPUTime
-  demand count id (repeat ())
-
   iavorStart <- getCPUTime
   vs <- newEnumSupply :: IO (Supply Int)
   -- vs <- newDupableEnumSupply :: IO (Supply Int)
@@ -36,18 +33,16 @@ main = do
   demand count uniqFromSupply (splitU us)
 
   end <- getCPUTime
-  let countTime = iavorStart - countStart
-      iavorTime = ghcStart   - iavorStart
-      ghcTime   = end        - ghcStart
+  let iavorTime = fromIntegral (ghcStart - iavorStart)
+      ghcTime   = fromIntegral (end - ghcStart)
       ratio
-        | ghcTime == countTime = "?"
-        | otherwise   = sh  (fromIntegral (iavorTime-countTime) /
-                             fromIntegral (ghcTime-countTime))
-      scale     = fromIntegral cpuTimePrecision
-      sh x = showGFloat (Just 2) x ""
+        | ghcTime == 0  = "?"
+        | otherwise     = sh (iavorTime / ghcTime)
+      scale = fromIntegral cpuTimePrecision
+      sh x  = showGFloat (Just 2) x ""
 
   putStrLn ("count: " ++ show count ++
-          "\tval: " ++ sh (fromIntegral iavorTime / scale) ++
-          "\tghc: " ++ sh (fromIntegral ghcTime / scale) ++
+          "\tval: " ++ sh (iavorTime / scale) ++
+          "\tghc: " ++ sh (ghcTime / scale) ++
           "\tratio: " ++ ratio)
 
