@@ -18,9 +18,8 @@ Description:
   ''On Generating Unique Names''
   by Lennart Augustsson, Mikael Rittri, and Dan Synek.
 
-Build-depends:  base
+Build-depends:  base >= 4.0.0.0 && < 5.0.0.0
 Build-type: Simple
 Extra-source-files: LICENSE
 Exposed-modules: Data.Supply
 GHC-options:    -O2 -Wall
-
