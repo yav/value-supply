@@ -45,8 +45,10 @@ module Data.Supply
 import Data.IORef(newIORef,atomicModifyIORef)
 import System.IO.Unsafe(unsafeInterleaveIO)
 
-#if __GLASGOW_HASKELL__ >= 608
-import GHC.IOBase(unsafeDupableInterleaveIO)
+#if __GLASGOW_HASKELL__ >= 608 && __GLASGOW_HASKELL__ <= 610
+import GHC.IOBase (unsafeDupableInterleaveIO)
+#elif __GLASGOW_HASKELL__ >= 612
+import GHC.IO (unsafeDupableInterleaveIO)
 #else
 unsafeDupableInterleaveIO :: IO a -> IO a
 unsafeDupableInterleaveIO = unsafeInterleaveIO
